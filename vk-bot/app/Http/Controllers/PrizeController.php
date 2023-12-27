@@ -11,6 +11,23 @@ class PrizeController extends Controller
     {
         return view('prizes.create');
     }
+    public function drawPrize()
+    {
+        $activeContests = Prize::whereDate('end_date', now()->toDateString())->get();
+
+        foreach ($activeContests as $contest) {
+            $participants = $contest->participants()->whereNull('winner_id')->get();
+
+            if ($participants->count() > 0) {
+                $winner = $participants->random();
+                $task = Task::where('type', $contest->type)->inRandomOrder()->first();
+                $winner->update(['winner_id' => $winner->id]);
+                return "Конкурс: {$contest->name}, Приз: {$task->name}, Победитель: {$winner->name}";
+            }
+        }
+
+        return "На сегодня конкурсов нет или все призы уже разыграны.";
+    }
 
     public function store(Request $request)
     {
