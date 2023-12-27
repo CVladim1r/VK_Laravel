@@ -99,6 +99,30 @@ class ContestController extends Controller
         return redirect()->route('contests.index')->with('success', 'Contest deleted successfully');
     }
 
+    public function publishContestResults($groupId, $contestMessage, $contestId, $prizeId)
+    {
+        $prize = Prize::find($prizeId);
+        if (!$prize) {
+            return redirect()->route('contests.index')->with('error', 'Invalid prize selected');
+        }
+
+        $winnerUserId = ContestModel::find($contestId)->winner->user_id;
+        $votesToGive = $prize->value;
+
+        $result = $this->vkApiService->giveVotesToWinner($winnerUserId, $votesToGive);
+
+        // Обработка результата
+        if ($result['success']) {
+            $contest = ContestModel::find($contestId);
+            $contest->status = 'completed';
+            $contest->save();
+
+            return redirect()->route('contests.index')->with('success', 'Contest added successfully');
+        } else {
+            return redirect()->route('contests.index')->with('error', 'Error giving votes: ' . $result['message']);
+        }
+    }
+
     public function create()
     {
         return view('contests.create');

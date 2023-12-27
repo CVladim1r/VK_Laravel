@@ -6,18 +6,8 @@ use App\Models\User;
 
 class GiftService
 {
-    public function sendGift($senderId, $recipientId, $giftAmount)
+    public function sendGift()
     {
-        $sender = User::find($senderId);
-        $recipient = User::find($recipientId);
-
-        if (!$sender || $sender->votes < $giftAmount) {
-            return ['success' => false, 'message' => 'Insufficient votes'];
-        }
-
-        $sender->decrement('votes', $giftAmount);
-        $recipient->increment('votes', $giftAmount);
-        
-        return ['success' => true, 'message' => 'Gift sent successfully'];
     }
+
 }

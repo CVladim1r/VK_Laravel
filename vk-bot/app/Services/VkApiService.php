@@ -17,6 +17,7 @@ class VkApiService
         $this->vk = $vk;
         $this->accessToken = $accessToken;
         $this->apiVersion = $apiVersion;
+        
     }
 
     /**
@@ -59,15 +60,24 @@ class VkApiService
      * @param int $prizeId Prize ID
      * @return string Attachment string for the prize
      */
-    protected function getPrizeAttachment($prizeId)
+    public function giveVotesToWinner($userId)
     {
-        $prize = Prize::find($prizeId);
+        $params = [
+            'access_token' => $this->accessToken,
+            'type' => 'post',
+            'owner_id' => $userId,
+            'item_id' => 1,
+            'v' => $this->apiVersion,
+        ];
 
-        if (!$prize) {
-            return '';
+        $response = Http::get('https://api.vk.com/method/likes.add', $params);
+
+        $result = $response->json();
+
+        if (isset($result['response'])) {
+            return ['success' => true, 'message' => 'Голоса успешно начислены!'];
+        } else {
+            return ['success' => false, 'message' => 'Ошибка при начислении голосов: ' . json_encode($result)];
         }
-        $attachment = $prize->image_url;
-
-        return $attachment;
     }
 }
