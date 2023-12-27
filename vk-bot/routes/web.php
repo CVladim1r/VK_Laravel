@@ -25,3 +25,5 @@ Route::get('/contests/{contest}/edit', [ContestController::class, 'edit'])->name
 Route::delete('/contests/{contest}', [ContestController::class, 'destroy'])->name('contests.destroy');
 Route::get('/contests', [ContestController::class, 'index'])->name('contests.index');
 Route::get('/contests/create', [ContestController::class, 'create'])->name('contests.create');
+
+Route::post('/api/gift', 'GiftController@gift');
