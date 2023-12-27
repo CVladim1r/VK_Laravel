@@ -4,6 +4,7 @@ namespace App\Services;
 
 use VK\Client\VKApiClient;
 use VK\Exceptions\Api\VKApiException;
+use App\Models\Prize;
 
 class VkApiService
 {
@@ -60,5 +61,13 @@ class VkApiService
      */
     protected function getPrizeAttachment($prizeId)
     {
+        $prize = Prize::find($prizeId);
+
+        if (!$prize) {
+            return '';
+        }
+        $attachment = $prize->image_url;
+
+        return $attachment;
     }
 }
