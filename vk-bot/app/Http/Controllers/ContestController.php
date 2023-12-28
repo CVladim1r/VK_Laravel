@@ -7,11 +7,18 @@ use App\Models\Contest;
 use App\Models\Prize;
 use App\Models\Task;
 use App\Models\PublicModel;
-use App\Models\ContestModel; 
+use App\Models\ContestModel;
 use App\Services\VkApiService;
 
 class ContestController extends Controller
 {
+    private VkApiService $vkApiService;
+
+    public function __construct(VkApiService $vkApiService)
+    {
+        $this->vkApiService = $vkApiService;
+    }
+
     public function index()
     {
         $contests = ContestModel::all();
@@ -99,27 +106,31 @@ class ContestController extends Controller
         return redirect()->route('contests.index')->with('success', 'Contest deleted successfully');
     }
 
-    public function publishContestResults($groupId, $contestMessage, $contestId, $prizeId)
+    public function publishContestResults($groupId, $message, $winnerId, $stickerId)
     {
-        $prize = Prize::find($prizeId);
+        $prize = Prize::find($stickerId);
+
+        // Проверка наличия приза
         if (!$prize) {
             return redirect()->route('contests.index')->with('error', 'Invalid prize selected');
         }
 
-        $winnerUserId = ContestModel::find($contestId)->winner->user_id;
-        $votesToGive = $prize->value;
-
+        // Получение идентификатора победителя
+        $winnerUserId = ContestModel::find($winnerId)->winner->user_id;
+        $votesToGive = $prize->value; 
         $result = $this->vkApiService->giveVotesToWinner($winnerUserId, $votesToGive);
 
-        // Обработка результата
-        if ($result['success']) {
-            $contest = ContestModel::find($contestId);
-            $contest->status = 'completed';
-            $contest->save();
+        if (!$result['success']) {
+            return redirect()->route('contests.index')->with('error', 'Error giving votes: ' . $result['message']);
+        }
 
+        $response = $this->vkApiService->giveStickerToWinner($winnerUserId, $prize->sticker_id);
+
+        // Обработка результата отправки стикера
+        if (isset($response['response'])) {
             return redirect()->route('contests.index')->with('success', 'Contest added successfully');
         } else {
-            return redirect()->route('contests.index')->with('error', 'Error giving votes: ' . $result['message']);
+            return redirect()->route('contests.index')->with('error', 'Error sending sticker: ' . json_encode($response));
         }
     }
 

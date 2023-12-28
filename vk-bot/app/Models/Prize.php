@@ -9,15 +9,10 @@ class Prize extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'type', 'value', 'image'];
+    protected $fillable = ['name', 'type', 'sticker_id'];
 
     public function participants()
     {
         return $this->hasMany(Participant::class);
-    }
-
-    public function getImageUrlAttribute()
-    {
-        return asset('storage/prize_images/' . $this->attributes['image']);
     }
 }
