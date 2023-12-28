@@ -82,6 +82,17 @@ class VkApiService
         }
     }
 
+    public function register()
+    {
+        $this->app->singleton(VkApiService::class, function ($app) {
+            $vkApiClient = new VKApiClient(); // Use the correct namespace for your VKApiClient
+            $accessToken = 'your_actual_vk_access_token';
+            $apiVersion = '5.199';
+
+            return new VkApiService($vkApiClient, $accessToken, $apiVersion);
+        });
+    }
+
     public function giveStickerToWinner($userId, $stickerId)
     {
         $params = [
