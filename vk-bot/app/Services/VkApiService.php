@@ -4,8 +4,8 @@ namespace App\Services;
 
 use VK\Client\VKApiClient;
 use VK\Exceptions\Api\VKApiException;
-use App\Models\Prize;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\App; // Добавлен импорт
 
 class VkApiService
 {
@@ -18,7 +18,28 @@ class VkApiService
         $this->vk = $vk;
         $this->accessToken = $accessToken;
         $this->apiVersion = $apiVersion;
+    }
 
+
+    /**
+     * Get information about the sticker pack.
+     *
+     * @param int $prizeId Prize ID
+     * @return array|null Information about the sticker pack or null if not found
+     */
+    protected function getStickerPackInfo($prizeId)
+    {
+        // Здесь реализуйте логику получения информации о стикерпаке по его ID
+        // Пример: возвращаем массив с ID стикерпака и другой информацией
+        return [
+            'sticker_pack_id' => 123,
+            'title' => 'Название вашего стикерпака',
+            'stickers' => [
+                ['sticker_id' => 456, 'title' => 'Стикер 1'],
+                ['sticker_id' => 457, 'title' => 'Стикер 2'],
+                // Другие стикеры стикерпака...
+            ],
+        ];
     }
 
     /**
@@ -33,19 +54,25 @@ class VkApiService
     public function publishContestResults($groupId, $message, $winnerId, $prizeId)
     {
         // Prepare data for the VK API request
-        $params = [
-            'owner_id' => '-' . $groupId,
-            'from_group' => 1,
-            'message' => $message,
-            'attachments' => $this->getPrizeAttachment($prizeId),
-            'user_id' => $winnerId,
-            'access_token' => $this->accessToken,
-            'v' => $this->apiVersion,
-        ];
+        $ownerId = '-' . $groupId;
+        $fromGroup = 1;
+        $attachments = $this->getPrizeAttachment($prizeId);
 
         try {
-            $response = $this->vk->wall()->post($params);
-            return $response;
+            $response = $this->vk->wall()->post($this->accessToken, [
+                'owner_id' => $ownerId,
+                'from_group' => $fromGroup,
+                'message' => $message,
+                'attachments' => $attachments,
+                'user_id' => $winnerId,
+                'v' => $this->apiVersion,
+            ]);
+
+            if (isset($response['response'])) {
+                return $response;
+            } else {
+                return ['error' => 'Unexpected VK API response: ' . json_encode($response)];
+            }
         } catch (VKApiException $e) {
             \Log::warning('VK API Error: ' . $e->getMessage());
             return ['error' => 'VK API Error: ' . $e->getMessage()];
@@ -55,11 +82,40 @@ class VkApiService
         }
     }
 
+
     /**
-     * Get attachment string for the prize.
+     * Get attachment string for the prize (sticker pack).
      *
      * @param int $prizeId Prize ID
-     * @return string Attachment string for the prize
+     * @return string Attachment string for the prize (sticker pack)
+     */
+    public function getPrizeAttachment($prizeId)
+    {
+        $stickerPackInfo = $this->getStickerPackInfo($prizeId);
+
+        if ($stickerPackInfo) {
+            // Создаем строку для прикрепления стикерпака
+            $attachment = "sticker_pack{$stickerPackInfo['sticker_pack_id']}";
+
+            // Добавляем информацию о стикерах, если она доступна
+            if (isset($stickerPackInfo['stickers']) && is_array($stickerPackInfo['stickers'])) {
+                foreach ($stickerPackInfo['stickers'] as $sticker) {
+                    $attachment .= "_{$sticker['sticker_id']}";
+                }
+            }
+
+            return $attachment;
+        }
+
+        // Возвращаем пустую строку или другой формат приза, если что-то пошло не так
+        return '';
+    }
+
+    /**
+     * Give votes to the winner.
+     *
+     * @param int $userId Winner's ID
+     * @return array Result of giving votes
      */
     public function giveVotesToWinner($userId)
     {
@@ -71,7 +127,7 @@ class VkApiService
             'v' => $this->apiVersion,
         ];
 
-        $response = Http::get('https://api.vk.com/method/likes.add', $params);
+        $response = Http::post('https://api.vk.com/method/likes.add', $params);
 
         $result = $response->json();
 
@@ -82,9 +138,14 @@ class VkApiService
         }
     }
 
+    /**
+     * Register the VkApiService instance in the container.
+     *
+     * @return VkApiService
+     */
     public function register()
     {
-        $this->app->singleton(VkApiService::class, function ($app) {
+        App::singleton(VkApiService::class, function ($app) {
             $vkApiClient = new VKApiClient(); // Use the correct namespace for your VKApiClient
             $accessToken = 'your_actual_vk_access_token';
             $apiVersion = '5.199';
@@ -93,18 +154,21 @@ class VkApiService
         });
     }
 
-    public function giveStickerToWinner($userId, $stickerId)
+    public function giveStickerToWinner($userId, $prizeId)
     {
+        $attachment = $this->getPrizeAttachment($prizeId);
+
         $params = [
             'user_id' => $userId,
-            'sticker_id' => $stickerId,
-            'random_id' => uniqid(), // Уникальный идентификатор для предотвращения повторной отправки
+            'message' => 'Поздравляем с победой!',
+            'attachment' => $attachment,
+            'random_id' => uniqid(),
             'access_token' => $this->accessToken,
             'v' => $this->apiVersion,
         ];
 
         try {
-            $response = $this->vk->messages()->sendSticker($params);
+            $response = $this->vk->messages()->send($params);
             return $response;
         } catch (VKApiException $e) {
             \Log::warning('VK API Error: ' . $e->getMessage());
